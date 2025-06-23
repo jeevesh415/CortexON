@@ -2,6 +2,7 @@
 from typing import List, Optional
 import json
 
+
 # Third-party imports
 from fastapi import FastAPI, WebSocket, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # Local application imports
 from instructor import SystemInstructor
 from utils.models import MCPRequest, MCPServerConfig
+from utils.analyze_mcp_server_tools import analyze_mcp_server_tools
 
 
 app: FastAPI = FastAPI()
@@ -21,7 +23,6 @@ app.add_middleware(
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
 )
-
 
 async def generate_response(task: str, websocket: Optional[WebSocket] = None):
     orchestrator: SystemInstructor = SystemInstructor()
@@ -145,7 +146,7 @@ async def configure_mcp_server(mcp_request: MCPRequest):
 
 @app.post("/agent/mcp/servers/add")
 async def add_mcp_server(server_name: str, server_config: MCPServerConfig):
-    """Add a new MCP server configuration"""
+    """Add a new MCP server configuration with LLM-based tool analysis"""
     with open("config/external_mcp_servers.json", "r") as f:
         servers = json.load(f)
 
@@ -163,14 +164,37 @@ async def add_mcp_server(server_name: str, server_config: MCPServerConfig):
         if server_config.secret_key in server_config.env:
             server_config.env[server_config.secret_key] = ""
 
+    # Perform LLM-based tool analysis if server is enabled
+    tool_analysis = None
+    if server_config.status == "enabled":
+        try:
+            print(f"Analyzing tools for {server_name} using Claude LLM...")
+            tool_analysis = await analyze_mcp_server_tools(server_name, server_config)
+            print(f"Tool analysis: {tool_analysis}")
+            print(f"Tool analysis completed for {server_name}")
+        except Exception as e:
+            print(f"Tool analysis failed for {server_name}: {str(e)}")
+            # Continue without tool analysis if it fails
+            tool_analysis = {
+                "error": f"Tool analysis failed: {str(e)}",
+                "server_name": server_name,
+                "tools": []
+            }
+
     # Add the new server configuration
-    servers[server_name] = server_config.dict()
+    server_dict = server_config.dict()
+    
+    # Add tool analysis if available
+    if tool_analysis:
+        server_dict["tool_analysis"] = tool_analysis
+
+    servers[server_name] = server_dict
 
     # Write back to the file
     with open("config/external_mcp_servers.json", "w") as f:
         json.dump(servers, f, indent=4)
 
-    return {
+    response_data = {
         "name": server_name,
         "status": server_config.status,
         "description": server_config.description,
@@ -180,11 +204,19 @@ async def add_mcp_server(server_name: str, server_config: MCPServerConfig):
             else {}
         ),
         "message": (
-            "Server added and enabled"
+            "Server added and enabled with tool analysis"
+            if server_config.status == "enabled" and tool_analysis and "error" not in tool_analysis
+            else "Server added and enabled"
             if server_config.status == "enabled"
             else "Server added but disabled (API key required)"
         ),
     }
+    
+    # Include tool analysis in response if available
+    if tool_analysis:
+        response_data["tool_analysis"] = tool_analysis
+
+    return response_data
 
 
 @app.delete("/agent/mcp/servers/{server_name}")

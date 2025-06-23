@@ -232,7 +232,7 @@ class StdioServerProvider:
         return prompt
 
     def generate_dynamic_sections(self, server_names: List[str]) -> Dict[str, str]:
-        """Generate content for each specific section that needs dynamic insertion"""
+        """Generate content for each specific section that needs dynamic insertion using tool_analysis data"""
         
         # Always include main server tools
         main_server_tools = [
@@ -248,29 +248,46 @@ class StdioServerProvider:
             }
         ]
         
-        # Generate server selection guidelines for dynamic sections
+        # Generate server selection guidelines using tool_analysis data
         server_selection_dynamic = ""
         if server_names:
             server_selection_dynamic = "When deciding which external server to use:\n"
             for i, server_name in enumerate(server_names, 1):
                 config = self.server_configs.get(server_name, {})
-                description = config.get('description', f"MCP server for {server_name}")
-                server_title = server_name.replace('-', ' ').title()
                 
-                # Generate usage scenarios based on server type
-                keywords = server_name.lower().split('-')
-                if "github" in keywords:
-                    usage = "repository operations, code analysis, issue management"
-                elif "google" in keywords and "maps" in keywords:
-                    usage = "location services, geocoding, directions, place search"
-                elif "weather" in keywords:
-                    usage = "weather information, forecasts, climate data"
-                elif "calendar" in keywords:
-                    usage = "scheduling, calendar management, event creation"
+                # Use tool_analysis data if available for more accurate descriptions
+                if 'tool_analysis' in config and config['tool_analysis'].get('success'):
+                    analysis = config['tool_analysis']
+                    server_analysis = analysis.get('server_analysis', {})
+                    analysis_summary = server_analysis.get('analysis_summary', f"MCP server for {server_name}")
+                    
+                    # Extract primary use cases from tool analysis
+                    tools = analysis.get('tools', [])
+                    if tools:
+                        # Create usage description based on actual tool capabilities
+                        primary_uses = set()
+                        for tool in tools:
+                            usefulness = tool.get('usefulness', {})
+                            primary_use = usefulness.get('primary_use', '')
+                            if primary_use:
+                                primary_uses.add(primary_use.lower())
+                        
+                        if primary_uses:
+                            usage_list = list(primary_uses)[:3]  # Take first 3 primary uses
+                            usage = ", ".join(usage_list)
+                        else:
+                            usage = f"{server_name.replace('-', ' ')} operations"
+                    else:
+                        usage = f"{server_name.replace('-', ' ')} operations"
+                        
+                    server_selection_dynamic += f"{i + 2}. For {usage}: Use {server_name} server\n"
+                    server_selection_dynamic += f"   - {analysis_summary}\n"
                 else:
+                    # Fallback to basic description if no tool_analysis
+                    description = config.get('description', f"MCP server for {server_name}")
                     usage = f"{server_name.replace('-', ' ')} related operations"
-                
-                server_selection_dynamic += f"{i + 2}. For {usage}: Use {server_name} server\n"
+                    server_selection_dynamic += f"{i + 2}. For {usage}: Use {server_name} server\n"
+                    server_selection_dynamic += f"   - {description}\n"
         else:
             server_selection_dynamic = "No external servers currently configured. Use main server tools (coder_task, web_surfer_task) for all operations."
         
@@ -284,19 +301,74 @@ class StdioServerProvider:
             available_tools += f"   - Provided by {tool['server']} MCP server\n"
             available_tools += f"   - Use when plan requires {'coding' if 'coder' in tool['name'] else 'web browsing/authentication'} operations\n"
         
-        # Then add external server tools
+        # Then add external server tools using tool_analysis data
         tool_counter = 5 + len(main_server_tools)
         for server_name in server_names:
-            tools = self.server_tools.get(server_name, [])
-            if tools:
-                for tool in tools:
+            config = self.server_configs.get(server_name, {})
+            
+            # Use tool_analysis data if available
+            if 'tool_analysis' in config and config['tool_analysis'].get('success'):
+                analysis = config['tool_analysis']
+                analyzed_tools = analysis.get('tools', [])
+                
+                for tool in analyzed_tools:
                     tool_name = tool.get("name", f"{server_name}.unknown_tool")
                     tool_description = tool.get("description", "No description available")
+                    usefulness = tool.get('usefulness', {})
+                    primary_use = usefulness.get('primary_use', '')
+                    use_cases = usefulness.get('use_cases', [])
+                    parameters = tool.get('parameters', {})
+                    usage = tool.get('usage', {})
+                    
                     available_tools += f"\n{tool_counter}. {tool_name}:\n"
-                    available_tools += f"   - {tool_description}\n"
+                    available_tools += f"   - Description: {tool_description}\n"
+                    if primary_use:
+                        available_tools += f"   - Primary use: {primary_use}\n"
+                    if use_cases:
+                        available_tools += f"   - Use cases: {', '.join(use_cases[:3])}\n"
+                    
+                    # Add parameter information
+                    required_params = parameters.get('required', [])
+                    optional_params = parameters.get('optional', [])
+                    param_details = parameters.get('parameter_details', {})
+                    
+                    if required_params or optional_params:
+                        available_tools += f"   - Parameters:\n"
+                        if required_params:
+                            available_tools += f"     * Required: {', '.join(required_params)}\n"
+                        if optional_params:
+                            available_tools += f"     * Optional: {', '.join(optional_params)}\n"
+                        
+                        # Add parameter details for key parameters
+                        if param_details:
+                            key_params = list(param_details.keys())[:2]  # Show first 2 parameter details
+                            for param in key_params:
+                                if param in param_details:
+                                    available_tools += f"     * {param}: {param_details[param]}\n"
+                    
+                    # Add usage information
+                    usage_format = usage.get('format', '')
+                    usage_example = usage.get('example', '')
+                    if usage_format:
+                        available_tools += f"   - Usage format: {usage_format}\n"
+                    if usage_example:
+                        available_tools += f"   - Example: {usage_example}\n"
+                    
                     available_tools += f"   - Provided by {server_name} server\n"
                     available_tools += f"   - Use when plan requires {server_name.replace('-', ' ')} operations\n"
                     tool_counter += 1
+            else:
+                # Fallback to basic discovery method
+                tools = self.server_tools.get(server_name, [])
+                if tools:
+                    for tool in tools:
+                        tool_name = tool.get("name", f"{server_name}.unknown_tool")
+                        tool_description = tool.get("description", "No description available")
+                        available_tools += f"\n{tool_counter}. {tool_name}:\n"
+                        available_tools += f"   - {tool_description}\n"
+                        available_tools += f"   - Provided by {server_name} server\n"
+                        available_tools += f"   - Use when plan requires {server_name.replace('-', ' ')} operations\n"
+                        tool_counter += 1
         
         # Generate servers with tools section
         servers_with_tools = ""
@@ -310,24 +382,71 @@ class StdioServerProvider:
             servers_with_tools += f"      - Updates UI with {tool['server']} server operation progress\n"
         servers_with_tools += "\n"
         
-        # Then add external servers
+        # Then add external servers using tool_analysis data
         for i, server_name in enumerate(server_names, 1):
             config = self.server_configs.get(server_name, {})
-            description = config.get('description', f"MCP server for {server_name}")
             
             servers_with_tools += f"{i + 1}. {server_name.upper()} SERVER:\n"
-            servers_with_tools += f"   Description: {description}\n"
             
-            tools = self.server_tools.get(server_name, [])
-            if tools:
-                for j, tool in enumerate(tools, 1):
-                    tool_name = tool.get("name", f"{server_name}.unknown_tool")
-                    tool_description = tool.get("description", "No description available")
-                    servers_with_tools += f"   {j}. {tool_name}:\n"
-                    servers_with_tools += f"      - {tool_description}\n"
-                    servers_with_tools += f"      - Updates UI with {server_name} operation progress\n"
+            # Use tool_analysis data if available for better descriptions
+            if 'tool_analysis' in config and config['tool_analysis'].get('success'):
+                analysis = config['tool_analysis']
+                server_analysis = analysis.get('server_analysis', {})
+                analysis_summary = server_analysis.get('analysis_summary', f"MCP server for {server_name}")
+                total_tools = server_analysis.get('total_tools', 0)
+                
+                servers_with_tools += f"   Description: {analysis_summary}\n"
+                servers_with_tools += f"   Total Tools: {total_tools}\n"
+                
+                analyzed_tools = analysis.get('tools', [])
+                if analyzed_tools:
+                    for j, tool in enumerate(analyzed_tools, 1):
+                        tool_name = tool.get("name", f"{server_name}.unknown_tool")
+                        tool_description = tool.get("description", "No description available")
+                        usefulness = tool.get('usefulness', {})
+                        primary_use = usefulness.get('primary_use', '')
+                        use_cases = usefulness.get('use_cases', [])
+                        parameters = tool.get('parameters', {})
+                        usage = tool.get('usage', {})
+                        
+                        servers_with_tools += f"   {j}. {tool_name}:\n"
+                        servers_with_tools += f"      - Description: {tool_description}\n"
+                        if primary_use:
+                            servers_with_tools += f"      - Primary use: {primary_use}\n"
+                        if use_cases:
+                            servers_with_tools += f"      - Use cases: {', '.join(use_cases[:2])}\n"
+                        
+                        # Add parameter summary
+                        required_params = parameters.get('required', [])
+                        optional_params = parameters.get('optional', [])
+                        if required_params:
+                            servers_with_tools += f"      - Required params: {', '.join(required_params)}\n"
+                        if optional_params:
+                            servers_with_tools += f"      - Optional params: {', '.join(optional_params[:2])}\n"
+                        
+                        # Add usage example
+                        usage_example = usage.get('example', '')
+                        if usage_example:
+                            servers_with_tools += f"      - Example: {usage_example}\n"
+                        
+                        servers_with_tools += f"      - Updates UI with {server_name} operation progress\n"
+                else:
+                    servers_with_tools += f"   - Various tools prefixed with '{server_name}.'\n"
             else:
-                servers_with_tools += f"   - Various tools prefixed with '{server_name}.'\n"
+                # Fallback to basic description
+                description = config.get('description', f"MCP server for {server_name}")
+                servers_with_tools += f"   Description: {description}\n"
+                
+                tools = self.server_tools.get(server_name, [])
+                if tools:
+                    for j, tool in enumerate(tools, 1):
+                        tool_name = tool.get("name", f"{server_name}.unknown_tool")
+                        tool_description = tool.get("description", "No description available")
+                        servers_with_tools += f"   {j}. {tool_name}:\n"
+                        servers_with_tools += f"      - {tool_description}\n"
+                        servers_with_tools += f"      - Updates UI with {server_name} operation progress\n"
+                else:
+                    servers_with_tools += f"   - Various tools prefixed with '{server_name}.'\n"
             servers_with_tools += "\n"
         
         # Generate external MCP server tools guidelines
@@ -345,17 +464,73 @@ class StdioServerProvider:
             
             for server_name in server_names:
                 config = self.server_configs.get(server_name, {})
-                description = config.get('description', f"MCP server for {server_name}")
                 
                 external_tools_guidelines += f"- {server_name} Server:\n"
-                external_tools_guidelines += f"  * Description: {description}\n"
+                
+                # Use tool_analysis data if available for comprehensive guidelines
+                if 'tool_analysis' in config and config['tool_analysis'].get('success'):
+                    analysis = config['tool_analysis']
+                    server_analysis = analysis.get('server_analysis', {})
+                    analysis_summary = server_analysis.get('analysis_summary', f"MCP server for {server_name}")
+                    total_tools = server_analysis.get('total_tools', 0)
+                    
+                    external_tools_guidelines += f"  * Description: {analysis_summary}\n"
+                    external_tools_guidelines += f"  * Total Available Tools: {total_tools}\n"
+                    
+                    # Extract and list detailed tool information from analysis
+                    analyzed_tools = analysis.get('tools', [])
+                    if analyzed_tools:
+                        external_tools_guidelines += f"  * Available tools ({len(analyzed_tools)}):\n"
+                        
+                        for tool in analyzed_tools[:3]:  # Show details for first 3 tools to avoid overwhelming
+                            tool_name = tool.get('name', '').replace(f'{server_name}.', '')
+                            tool_description = tool.get('description', '')
+                            usefulness = tool.get('usefulness', {})
+                            primary_use = usefulness.get('primary_use', '')
+                            parameters = tool.get('parameters', {})
+                            usage = tool.get('usage', {})
+                            
+                            external_tools_guidelines += f"    - {tool_name}: {tool_description}\n"
+                            if primary_use:
+                                external_tools_guidelines += f"      • Primary use: {primary_use}\n"
+                            
+                            # Add parameter info
+                            required_params = parameters.get('required', [])
+                            if required_params:
+                                external_tools_guidelines += f"      • Required: {', '.join(required_params)}\n"
+                            
+                            # Add usage example
+                            usage_example = usage.get('example', '')
+                            if usage_example:
+                                external_tools_guidelines += f"      • Example: {usage_example}\n"
+                        
+                        # Show remaining tool names if there are more than 3
+                        if len(analyzed_tools) > 3:
+                            remaining_tools = [tool.get('name', '').replace(f'{server_name}.', '') for tool in analyzed_tools[3:]]
+                            external_tools_guidelines += f"    - Additional tools: {', '.join(remaining_tools)}\n"
+                        
+                        # Add summary of primary capabilities
+                        primary_uses = set()
+                        for tool in analyzed_tools:
+                            usefulness = tool.get('usefulness', {})
+                            primary_use = usefulness.get('primary_use', '')
+                            if primary_use:
+                                primary_uses.add(primary_use)
+                        
+                        if primary_uses:
+                            external_tools_guidelines += f"  * Primary capabilities: {', '.join(list(primary_uses)[:3])}\n"
+                else:
+                    # Fallback to basic description
+                    description = config.get('description', f"MCP server for {server_name}")
+                    external_tools_guidelines += f"  * Description: {description}\n"
+                    
+                    tools = self.server_tools.get(server_name, [])
+                    if tools:
+                        external_tools_guidelines += f"  * Available tools: {', '.join([tool.get('name', '') for tool in tools])}\n"
+                
                 external_tools_guidelines += f"  * Use when plan specifies {server_name.replace('-', ' ')} operations\n"
                 external_tools_guidelines += f"  * REQUIRED: Use server_status_update before and after {server_name} tool calls\n"
-                external_tools_guidelines += f"  * Tool format: {server_name}.tool_name (e.g., {server_name}.places)\n"
-                
-                tools = self.server_tools.get(server_name, [])
-                if tools:
-                    external_tools_guidelines += f"  * Available tools: {', '.join([tool.get('name', '') for tool in tools])}\n"
+                external_tools_guidelines += f"  * Tool format: {server_name}.tool_name\n"
                 external_tools_guidelines += "\n"
             
             external_tools_guidelines += """Key guidelines for external server usage:
@@ -393,11 +568,111 @@ External servers can be added by configuring them in the external_mcp_servers.js
             
             for server_name in server_names:
                 config = self.server_configs.get(server_name, {})
-                description = config.get('description', f"MCP server for {server_name}")
                 
-                # Generate dynamic server selection rule based on description
-                if description:
-                    # Extract key capabilities from description to create selection rules
+                # Use tool_analysis data if available for comprehensive planner information
+                if 'tool_analysis' in config and config['tool_analysis'].get('success'):
+                    analysis = config['tool_analysis']
+                    server_analysis = analysis.get('server_analysis', {})
+                    analysis_summary = server_analysis.get('analysis_summary', f"MCP server for {server_name}")
+                    total_tools = server_analysis.get('total_tools', 0)
+                    
+                    # Generate dynamic server selection rules based on actual capabilities
+                    analyzed_tools = analysis.get('tools', [])
+                    if analyzed_tools:
+                        # Extract primary uses to create specific selection rules
+                        primary_uses = []
+                        use_cases = []
+                        for tool in analyzed_tools:
+                            usefulness = tool.get('usefulness', {})
+                            primary_use = usefulness.get('primary_use', '')
+                            tool_use_cases = usefulness.get('use_cases', [])
+                            if primary_use:
+                                primary_uses.append(primary_use.lower())
+                            use_cases.extend(tool_use_cases)
+                        
+                        # Create specific selection rules based on actual capabilities
+                        unique_uses = list(set(primary_uses + [case.lower() for case in use_cases]))
+                        capability_keywords = ' '.join(unique_uses)
+                        
+                        if any(keyword in capability_keywords for keyword in ['geocoding', 'location', 'navigation', 'mapping', 'directions']):
+                            dynamic_server_selection_rules += f"- Location/geocoding/mapping/navigation/directions tasks → USE {server_name} server (NOT web_surfer_agent)\n"
+                        elif any(keyword in capability_keywords for keyword in ['repository', 'code', 'github', 'git']):
+                            dynamic_server_selection_rules += f"- Repository/code analysis/GitHub tasks → USE {server_name} server (NOT web_surfer_agent)\n"
+                        elif any(keyword in capability_keywords for keyword in ['vector', 'database', 'index', 'search']):
+                            dynamic_server_selection_rules += f"- Vector database/index management/search tasks → USE {server_name} server (NOT web_surfer_agent)\n"
+                        else:
+                            # Use first few primary uses for the rule
+                            if primary_uses:
+                                rule_uses = '/'.join(primary_uses[:3])
+                                dynamic_server_selection_rules += f"- {rule_uses.title()} tasks → USE {server_name} server (NOT web_surfer_agent)\n"
+                    
+                    # Add comprehensive server info using analysis
+                    external_servers_info += f"\n{server_name} server:\n"
+                    external_servers_info += f"- Description: {analysis_summary}\n"
+                    external_servers_info += f"- Total Tools: {total_tools}\n"
+                    
+                    # Extract capabilities from tool analysis
+                    if analyzed_tools:
+                        capabilities = set()
+                        use_for_items = set()
+                        tool_names = []
+                        
+                        for tool in analyzed_tools:
+                            tool_names.append(tool.get('name', '').replace(f'{server_name}.', ''))
+                            usefulness = tool.get('usefulness', {})
+                            primary_use = usefulness.get('primary_use', '')
+                            if primary_use:
+                                capabilities.add(primary_use)
+                            
+                            # Extract use cases
+                            tool_use_cases = usefulness.get('use_cases', [])
+                            for case in tool_use_cases[:2]:  # Take first 2 use cases per tool
+                                use_for_items.add(case)
+                        
+                        if capabilities:
+                            external_servers_info += f"- Capabilities: {', '.join(list(capabilities))}\n"
+                        if use_for_items:
+                            external_servers_info += f"- Use for: {', '.join(list(use_for_items)[:4])}\n"  # Limit to 4 items
+                        if tool_names:
+                            external_servers_info += f"- Available tools: {', '.join(tool_names)}\n"
+                        
+                        external_servers_info += "- Tool Details:\n"
+                        for tool in analyzed_tools:
+                            tool_name = tool.get('name', '').replace(f'{server_name}.', '')
+                            tool_description = tool.get('description', '')
+                            usefulness = tool.get('usefulness', {})
+                            primary_use = usefulness.get('primary_use', '')
+                            parameters = tool.get('parameters', {})
+                            usage = tool.get('usage', {})
+                            
+                            external_servers_info += f"  • {tool_name}: {tool_description}\n"
+                            if primary_use:
+                                external_servers_info += f"    - Primary use: {primary_use}\n"
+                            
+                            required_params = parameters.get('required', [])
+                            if required_params:
+                                external_servers_info += f"    - Required: {', '.join(required_params)}\n"
+                            
+                            usage_format = usage.get('format', '')
+                            if usage_format:
+                                external_servers_info += f"    - Format: {usage_format}\n"
+                    
+                    # Create task format based on actual capabilities
+                    if analyzed_tools:
+                        primary_uses = [tool.get('usefulness', {}).get('primary_use', '') for tool in analyzed_tools]
+                        main_capabilities = [use for use in primary_uses if use][:3]  # Take first 3
+                        if main_capabilities:
+                            capabilities_str = ', '.join(main_capabilities).lower()
+                            external_task_formats += f"- [ ] Task description ({server_name} server) - for {capabilities_str}\n"
+                        else:
+                            external_task_formats += f"- [ ] Task description ({server_name} server) - for {server_name.replace('-', ' ')} operations\n"
+                    else:
+                        external_task_formats += f"- [ ] Task description ({server_name} server) - for {server_name.replace('-', ' ')} operations\n"
+                else:
+                    # Fallback to basic description
+                    description = config.get('description', f"MCP server for {server_name}")
+                    
+                    # Generate basic selection rules
                     description_lower = description.lower()
                     if any(keyword in description_lower for keyword in ['github', 'repository', 'code analysis']):
                         dynamic_server_selection_rules += f"- GitHub/repository/code analysis tasks → USE {server_name} server (NOT web_surfer_agent)\n"
@@ -405,47 +680,29 @@ External servers can be added by configuring them in the external_mcp_servers.js
                         dynamic_server_selection_rules += f"- Location/geocoding/mapping/navigation tasks → USE {server_name} server (NOT web_surfer_agent)\n"
                     elif any(keyword in description_lower for keyword in ['pinecone', 'vector', 'database', 'index']):
                         dynamic_server_selection_rules += f"- Vector database/index management/Pinecone tasks → USE {server_name} server (NOT web_surfer_agent)\n"
-                    elif any(keyword in description_lower for keyword in ['weather', 'climate', 'forecast']):
-                        dynamic_server_selection_rules += f"- Weather/climate/forecast tasks → USE {server_name} server (NOT web_surfer_agent)\n"
                     else:
-                        # Generic rule based on server name
                         server_title = server_name.replace('-', ' ').title()
                         dynamic_server_selection_rules += f"- {server_title} related tasks → USE {server_name} server (NOT web_surfer_agent)\n"
-                
-                # Add server info
-                external_servers_info += f"\n{server_name} server:\n"
-                external_servers_info += f"- Description: {description}\n"
-                
-                # Add capabilities based on server type
-                keywords = server_name.lower().split('-')
-                if "github" in keywords:
-                    external_servers_info += "- Capabilities: Repository operations, code analysis, issue management\n"
-                    external_servers_info += "- Use for: GitHub-related tasks, repository management, code search\n"
-                elif "google" in keywords and "maps" in keywords:
-                    external_servers_info += "- Capabilities: Location services, geocoding, directions, place search\n"
-                    external_servers_info += "- Use for: Location-based tasks, mapping, navigation\n"
-                elif "weather" in keywords:
-                    external_servers_info += "- Capabilities: Weather information, forecasts, climate data\n"
-                    external_servers_info += "- Use for: Weather-related tasks, climate information\n"
-                else:
-                    external_servers_info += f"- Capabilities: {server_name.replace('-', ' ').title()} operations\n"
-                    external_servers_info += f"- Use for: {server_name.replace('-', ' ')} related tasks\n"
-                
-                # Add tools if available
-                tools = self.server_tools.get(server_name, [])
-                if tools:
-                    external_servers_info += f"- Available tools: {', '.join([tool.get('name', '') for tool in tools])}\n"
-                
-                # Add task format with specific use cases
-                server_lower = server_name.lower()
-                if "github" in server_lower:
-                    external_task_formats += f"- [ ] Task description ({server_name} server) - for repository operations, code search, issue management\n"
-                elif "google" in server_lower and "maps" in server_lower:
-                    external_task_formats += f"- [ ] Task description ({server_name} server) - for location services, geocoding, restaurant search, navigation\n"
-                elif "weather" in server_lower:
-                    external_task_formats += f"- [ ] Task description ({server_name} server) - for weather information, forecasts, climate data\n"
-                else:
-                    external_task_formats += f"- [ ] Task description ({server_name} server) - for {server_name.replace('-', ' ')} operations\n"
+                    
+                    # Add basic server info
+                    external_servers_info += f"\n{server_name} server:\n"
+                    external_servers_info += f"- Description: {description}\n"
+                    
+                    # Add basic capabilities
+                    keywords = server_name.lower().split('-')
+                    if "google" in keywords and "maps" in keywords:
+                        external_servers_info += "- Capabilities: Location services, geocoding, directions, place search\n"
+                        external_servers_info += "- Use for: Location-based tasks, mapping, navigation\n"
+                        external_task_formats += f"- [ ] Task description ({server_name} server) - for location services, geocoding, navigation\n"
+                    else:
+                        external_servers_info += f"- Capabilities: {server_name.replace('-', ' ').title()} operations\n"
+                        external_servers_info += f"- Use for: {server_name.replace('-', ' ')} related tasks\n"
+                        external_task_formats += f"- [ ] Task description ({server_name} server) - for {server_name.replace('-', ' ')} operations\n"
+                    
+                    # Add basic tools if available
+                    tools = self.server_tools.get(server_name, [])
+                    if tools:
+                        external_servers_info += f"- Available tools: {', '.join([tool.get('name', '') for tool in tools])}\n"
         else:
             external_servers_info = "EXTERNAL MCP SERVERS: None currently configured."
             external_task_formats = "\nNo external servers available. Use only Main MCP Server assignments."
