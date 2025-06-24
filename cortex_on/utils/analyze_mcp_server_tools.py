@@ -224,3 +224,52 @@ async def _analyze_tools(server_name: str, server_config: MCPServerConfig, tools
     except Exception as e:
         logger.error(f"Claude analysis failed for {server_name}: {str(e)}")
         raise
+
+async def debug_mcp_server_connection(server_name: str, server_config: MCPServerConfig, tools_for_analysis: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Debug MCP server connection and analyze tools using Claude LLM
+    
+    Args:
+        server_name: Name of the MCP server
+        server_config: Configuration of the MCP server
+        tools_for_analysis: List of tools discovered from the server
+        
+    Returns:
+        Dictionary containing analyzed tool information or error details
+    """
+    try:
+        logger.info(f"Starting MCP server connection debug for {server_name}")
+        
+        # First check if we have any tools to analyze
+        if not tools_for_analysis:
+            logger.warning(f"No tools provided for analysis from {server_name}")
+            return {
+                "error": f"No tools available for analysis from {server_name}",
+                "server_name": server_name,
+                "tools": [],
+                "success": False
+            }
+            
+        # Analyze the tools using Claude
+        try:
+            analysis_result = await _analyze_tools(server_name, server_config, tools_for_analysis)
+            logger.info(f"Tool analysis completed successfully for {server_name}")
+            return analysis_result
+            
+        except Exception as analysis_error:
+            logger.error(f"Tool analysis failed for {server_name}: {str(analysis_error)}")
+            return {
+                "error": f"Tool analysis failed: {str(analysis_error)}",
+                "server_name": server_name,
+                "tools": tools_for_analysis,  # Include discovered tools even if analysis failed
+                "success": False
+            }
+            
+    except Exception as e:
+        logger.error(f"MCP server connection debug failed for {server_name}: {str(e)}")
+        return {
+            "error": f"Connection debug failed: {str(e)}",
+            "server_name": server_name,
+            "tools": [],
+            "success": False
+        }
