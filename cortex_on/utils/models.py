@@ -52,3 +52,45 @@ class MCPServerConfig(BaseModel):
     def has_valid_api_key(self) -> bool:
         """Check if the server has a valid API key in its environment variables"""
         return self.secret_key in self.env and bool(self.env[self.secret_key].strip())
+
+
+class ToolParameters(BaseModel):
+    """Model for tool parameters information"""
+    required: List[str] = []
+    optional: List[str] = []
+    parameter_details: Dict[str, str] = {}
+
+
+class ToolUsage(BaseModel):
+    """Model for tool usage information"""
+    format: str
+    example: str
+
+
+class ToolUsefulness(BaseModel):
+    """Model for tool usefulness information"""
+    primary_use: str
+    use_cases: List[str] = []
+    benefits: str
+
+
+class AnalyzedTool(BaseModel):
+    """Model for individual analyzed tool"""
+    name: str
+    description: str
+    parameters: ToolParameters
+    usage: ToolUsage
+    usefulness: ToolUsefulness
+
+
+class ServerAnalysis(BaseModel):
+    """Model for server analysis summary"""
+    server_name: str
+    total_tools: int
+    analysis_summary: str
+
+
+class MCPToolAnalysis(BaseModel):
+    """Model for complete MCP tool analysis"""
+    server_analysis: ServerAnalysis
+    tools: List[AnalyzedTool]

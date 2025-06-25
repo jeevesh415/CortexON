@@ -1,15 +1,4 @@
 {
-    "github": {
-        "command": "npx",
-        "args": [
-            "-y",
-            "@modelcontextprotocol/server-github"
-        ],
-        "env": {},
-        "description": "GitHub MCP server for repository operations",
-        "status": "disabled",
-        "secret_key": "GITHUB_PERSONAL_ACCESS_TOKEN"
-    },
     "google-maps": {
         "command": "npx",
         "args": [
@@ -17,19 +6,355 @@
             "@modelcontextprotocol/server-google-maps"
         ],
         "env": {},
-        "description": "Google Maps MCP server for geocoding, directions, and place search",
-        "status": "disabled",
-        "secret_key": "GOOGLE_MAPS_API_KEY"
+        "description": "MAPS",
+        "status": "enabled",
+        "secret_key": "GOOGLE_MAPS_API_KEY",
+        "tool_analysis": {
+            "server_analysis": {
+                "server_name": "google-maps",
+                "total_tools": 7,
+                "analysis_summary": "Comprehensive Google Maps API toolkit providing geocoding, place search, navigation, and geographical analysis capabilities through standardized endpoints"
+            },
+            "tools": [
+                {
+                    "name": "google-maps.maps_geocode",
+                    "description": "Convert an address into geographic coordinates",
+                    "parameters": {
+                        "required": [
+                            "address"
+                        ],
+                        "optional": [],
+                        "parameter_details": {
+                            "address": "String input representing the address to geocode"
+                        }
+                    },
+                    "usage": {
+                        "format": "maps_geocode(address='string')",
+                        "example": "maps_geocode(address='1600 Amphitheatre Parkway, Mountain View, CA')"
+                    },
+                    "usefulness": {
+                        "primary_use": "Address to coordinate conversion",
+                        "use_cases": [
+                            "Location-based services",
+                            "Map plotting",
+                            "Geographic data analysis"
+                        ],
+                        "benefits": "Essential for converting human-readable addresses into machine-usable coordinates"
+                    }
+                },
+                {
+                    "name": "google-maps.maps_reverse_geocode",
+                    "description": "Convert coordinates into an address",
+                    "parameters": {
+                        "required": [
+                            "latitude",
+                            "longitude"
+                        ],
+                        "optional": [],
+                        "parameter_details": {
+                            "latitude": "Number representing latitude coordinate",
+                            "longitude": "Number representing longitude coordinate"
+                        }
+                    },
+                    "usage": {
+                        "format": "maps_reverse_geocode(latitude=num, longitude=num)",
+                        "example": "maps_reverse_geocode(latitude=37.4224764, longitude=-122.0842499)"
+                    },
+                    "usefulness": {
+                        "primary_use": "Coordinate to address conversion",
+                        "use_cases": [
+                            "Location identification",
+                            "Asset tracking",
+                            "Emergency response"
+                        ],
+                        "benefits": "Converts raw coordinates into human-readable addresses"
+                    }
+                },
+                {
+                    "name": "google-maps.maps_search_places",
+                    "description": "Search for places using Google Places API",
+                    "parameters": {
+                        "required": [
+                            "query"
+                        ],
+                        "optional": [
+                            "location",
+                            "radius"
+                        ],
+                        "parameter_details": {
+                            "query": "String search query",
+                            "location": "Object containing latitude and longitude",
+                            "radius": "Number representing search radius in meters (max 50000)"
+                        }
+                    },
+                    "usage": {
+                        "format": "maps_search_places(query='string', location={latitude: num, longitude: num}, radius=num)",
+                        "example": "maps_search_places(query='restaurants', location={latitude: 37.4224764, longitude: -122.0842499}, radius=1000)"
+                    },
+                    "usefulness": {
+                        "primary_use": "Local business and point of interest discovery",
+                        "use_cases": [
+                            "Business location search",
+                            "Tourist information",
+                            "Local service discovery"
+                        ],
+                        "benefits": "Enables location-based place discovery with flexible search parameters"
+                    }
+                },
+                {
+                    "name": "google-maps.maps_place_details",
+                    "description": "Get detailed information about a specific place",
+                    "parameters": {
+                        "required": [
+                            "place_id"
+                        ],
+                        "optional": [],
+                        "parameter_details": {
+                            "place_id": "String representing unique Google Place ID"
+                        }
+                    },
+                    "usage": {
+                        "format": "maps_place_details(place_id='string')",
+                        "example": "maps_place_details(place_id='ChIJN1t_tDeuEmsRUsoyG83frY4')"
+                    },
+                    "usefulness": {
+                        "primary_use": "Detailed place information retrieval",
+                        "use_cases": [
+                            "Business information display",
+                            "Location details verification",
+                            "Place data aggregation"
+                        ],
+                        "benefits": "Provides comprehensive details about specific locations including hours, reviews, and contact information"
+                    }
+                },
+                {
+                    "name": "google-maps.maps_distance_matrix",
+                    "description": "Calculate travel distance and time for multiple origins and destinations",
+                    "parameters": {
+                        "required": [
+                            "origins",
+                            "destinations"
+                        ],
+                        "optional": [
+                            "mode"
+                        ],
+                        "parameter_details": {
+                            "origins": "Array of origin addresses or coordinates",
+                            "destinations": "Array of destination addresses or coordinates",
+                            "mode": "String: driving, walking, bicycling, or transit"
+                        }
+                    },
+                    "usage": {
+                        "format": "maps_distance_matrix(origins=['string'], destinations=['string'], mode='string')",
+                        "example": "maps_distance_matrix(origins=['New York'], destinations=['Boston', 'Washington DC'], mode='driving')"
+                    },
+                    "usefulness": {
+                        "primary_use": "Multi-point distance and time calculation",
+                        "use_cases": [
+                            "Delivery route planning",
+                            "Travel time estimation",
+                            "Logistics optimization"
+                        ],
+                        "benefits": "Efficiently calculates distances and travel times between multiple points"
+                    }
+                },
+                {
+                    "name": "google-maps.maps_elevation",
+                    "description": "Get elevation data for locations on the earth",
+                    "parameters": {
+                        "required": [
+                            "locations"
+                        ],
+                        "optional": [],
+                        "parameter_details": {
+                            "locations": "Array of objects containing latitude and longitude coordinates"
+                        }
+                    },
+                    "usage": {
+                        "format": "maps_elevation(locations=[{latitude: num, longitude: num}])",
+                        "example": "maps_elevation(locations=[{latitude: 39.7391536, longitude: -104.9847034}])"
+                    },
+                    "usefulness": {
+                        "primary_use": "Terrain elevation analysis",
+                        "use_cases": [
+                            "Topographical mapping",
+                            "Construction planning",
+                            "Outdoor activity planning"
+                        ],
+                        "benefits": "Provides accurate elevation data for geographical analysis and planning"
+                    }
+                },
+                {
+                    "name": "google-maps.maps_directions",
+                    "description": "Get directions between two points",
+                    "parameters": {
+                        "required": [
+                            "origin",
+                            "destination"
+                        ],
+                        "optional": [
+                            "mode"
+                        ],
+                        "parameter_details": {
+                            "origin": "String representing starting point",
+                            "destination": "String representing ending point",
+                            "mode": "String: driving, walking, bicycling, or transit"
+                        }
+                    },
+                    "usage": {
+                        "format": "maps_directions(origin='string', destination='string', mode='string')",
+                        "example": "maps_directions(origin='Times Square, NY', destination='Central Park, NY', mode='walking')"
+                    },
+                    "usefulness": {
+                        "primary_use": "Navigation and route planning",
+                        "use_cases": [
+                            "Trip planning",
+                            "Navigation assistance",
+                            "Travel time estimation"
+                        ],
+                        "benefits": "Provides detailed navigation instructions and route information between locations"
+                    }
+                }
+            ],
+            "success": true,
+            "discovery_method": "dynamic"
+        }
     },
-    "pinecone": {
+    "github": {
         "command": "npx",
         "args": [
             "-y",
-            "@pinecone-database/mcp"
+            "@modelcontextprotocol/server-github"
         ],
-        "env": {},
-        "description": "Pinecone MCP server for vector database operations, index management, and vector search",
+        "env": {
+            "GITHUB_PERSONAL_ACCESS_TOKEN": "1234"
+        },
+        "description": "Github",
         "status": "disabled",
-        "secret_key": "PINECONE_API_KEY"
+        "secret_key": "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "tool_analysis": {
+            "server_analysis": {
+                "server_name": "github",
+                "total_tools": 26,
+                "analysis_summary": "Comprehensive GitHub API integration tools covering repository management, issue tracking, pull request handling, code search, and collaboration features"
+            },
+            "tools": [
+                {
+                    "name": "github.create_or_update_file",
+                    "description": "Create or update a single file in a GitHub repository",
+                    "parameters": {
+                        "required": [
+                            "owner",
+                            "repo",
+                            "path",
+                            "content",
+                            "message",
+                            "branch"
+                        ],
+                        "optional": [
+                            "sha"
+                        ],
+                        "parameter_details": {
+                            "owner": "string - Repository owner (username or organization)",
+                            "repo": "string - Repository name",
+                            "path": "string - File path in repository",
+                            "content": "string - File content",
+                            "message": "string - Commit message",
+                            "branch": "string - Target branch name",
+                            "sha": "string - SHA of existing file when updating"
+                        }
+                    },
+                    "usage": {
+                        "format": "github.create_or_update_file(owner='user', repo='repo-name', path='file.txt', content='content', message='commit msg', branch='main')",
+                        "example": "github.create_or_update_file(owner='octocat', repo='hello-world', path='docs/README.md', content='# Hello World', message='Add README', branch='main')"
+                    },
+                    "usefulness": {
+                        "primary_use": "File management in GitHub repositories",
+                        "use_cases": [
+                            "Creating new documentation files",
+                            "Updating configuration files",
+                            "Managing content through API",
+                            "Automated file updates"
+                        ],
+                        "benefits": "Enables programmatic file management in GitHub repositories without needing git commands"
+                    }
+                },
+                {
+                    "name": "github.search_repositories",
+                    "description": "Search for GitHub repositories",
+                    "parameters": {
+                        "required": [
+                            "query"
+                        ],
+                        "optional": [
+                            "page",
+                            "perPage"
+                        ],
+                        "parameter_details": {
+                            "query": "string - Search query using GitHub search syntax",
+                            "page": "number - Page number for pagination",
+                            "perPage": "number - Results per page (max 100)"
+                        }
+                    },
+                    "usage": {
+                        "format": "github.search_repositories(query='search_term', page=1, perPage=30)",
+                        "example": "github.search_repositories(query='language:python stars:>1000', page=1, perPage=50)"
+                    },
+                    "usefulness": {
+                        "primary_use": "Finding relevant GitHub repositories",
+                        "use_cases": [
+                            "Discovering open source projects",
+                            "Research on specific technologies",
+                            "Finding trending repositories",
+                            "Competitive analysis"
+                        ],
+                        "benefits": "Enables programmatic discovery and analysis of GitHub repositories based on various criteria"
+                    }
+                },
+                {
+                    "name": "github.create_pull_request",
+                    "description": "Create a new pull request in a GitHub repository",
+                    "parameters": {
+                        "required": [
+                            "owner",
+                            "repo",
+                            "title",
+                            "head",
+                            "base"
+                        ],
+                        "optional": [
+                            "body",
+                            "draft",
+                            "maintainer_can_modify"
+                        ],
+                        "parameter_details": {
+                            "owner": "string - Repository owner",
+                            "repo": "string - Repository name",
+                            "title": "string - Pull request title",
+                            "head": "string - Branch containing changes",
+                            "base": "string - Branch to merge into",
+                            "body": "string - Pull request description",
+                            "draft": "boolean - Create as draft PR"
+                        }
+                    },
+                    "usage": {
+                        "format": "github.create_pull_request(owner='user', repo='repo', title='PR Title', head='feature', base='main')",
+                        "example": "github.create_pull_request(owner='octocat', repo='hello-world', title='Add new feature', head='feature-branch', base='main', body='Please review these changes')"
+                    },
+                    "usefulness": {
+                        "primary_use": "Automated pull request creation",
+                        "use_cases": [
+                            "Automated code review requests",
+                            "Dependency updates",
+                            "Feature branch merging",
+                            "Cross-repository contributions"
+                        ],
+                        "benefits": "Streamlines the code review and integration process through automated PR creation"
+                    }
+                }
+            ],
+            "success": true,
+            "discovery_method": "dynamic"
+        }
     }
 }
