@@ -1,0 +1,17 @@
+name: Auto Sync from Upstream
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          git config user.name "Bot" && git config user.email "bot@github.com"
+          PARENT=$(gh api repos/${{ github.repository }} --jq '.parent.full_name')
+          [ -n "$PARENT" ] && git remote add upstream "https://github.com/${PARENT}.git"
+          git fetch upstream
+          git merge upstream/main --no-edit || git merge upstream/master --no-edit
+          git push origin HEAD || exit 0
